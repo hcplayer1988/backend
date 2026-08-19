@@ -39,15 +39,10 @@ class User(AbstractUser):
     """
  
     email = models.EmailField(unique=True)
- 
-    # Adresse
     strasse = models.CharField(max_length=100, blank=True)
     hausnummer = models.CharField(max_length=10, blank=True)
     plz = models.CharField(max_length=10, blank=True)
     ort = models.CharField(max_length=100, blank=True)
- 
-    # Geburtstag — Basis für die spätere automatische Erinnerungs-Mail
-    # an alle Mitglieder außer dem Geburtstagskind selbst.
     geburtstag = models.DateField(null=True, blank=True)
  
     rollen = models.ManyToManyField(Rolle, blank=True, related_name='users')
@@ -91,7 +86,7 @@ class Einladung(models.Model):
         verbose_name_plural = 'Einladungen'
         ordering = ['-erstellt_am']
  
-    def ist_gueltig(self):
+    def is_valid(self):
         """Checks whether the invite is still usable (not used, not older than 7 days)."""
         return not self.verwendet and self.erstellt_am >= timezone.now() - timedelta(days=7)
  
