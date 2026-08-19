@@ -2,7 +2,7 @@
  
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
  
 from ..models import Einladung, Rolle
  
@@ -152,4 +152,27 @@ class PasswordConfirmSerializer(serializers.Serializer):
         if attrs.get('new_password') != attrs.get('confirm_password'):
             raise serializers.ValidationError('Passwords do not match.')
         return attrs
+ 
+ 
+class MitgliederManageSerializer(serializers.ModelSerializer):
+    """Serializer for admins/Vorstand managing member accounts.
+ 
+    Unlike UserSerializer (used for /me/), 'rollen' is writable here since
+    only Admin-restricted views ever use this serializer for updates.
+    """
+ 
+    rollen = serializers.PrimaryKeyRelatedField(many=True, queryset=Rolle.objects.all(), required=False)
+    voller_name = serializers.ReadOnlyField()
+ 
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'strasse', 'hausnummer', 'plz', 'ort', 'geburtstag',
+            'voller_name', 'rollen', 'is_active',
+        ]
+        read_only_fields = ['id', 'email', 'username', 'is_active']
+ 
+ 
+ 
  

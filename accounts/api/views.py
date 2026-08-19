@@ -176,3 +176,58 @@ class MeView(APIView):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
  
+ 
+from rest_framework import viewsets
+from rest_framework.decorators import action
+ 
+from .permissions import IsAdminRolle, IsSuperUser
+from .serializers import MitgliederManageSerializer
+ 
+ 
+class MitgliederViewSet(viewsets.ModelViewSet):
+    """Admin/Vorstand-facing management of member accounts.
+ 
+    - list/retrieve: Vorstand and Admin (read-only for Vorstand, enforced
+      by only exposing PATCH/DELETE to Admin below)
+    - update/partial_update/destroy: Admin only
+    - destroy: soft-deactivates unless performed by the platform owner
+      (is_superuser), who hard-deletes instead
+    - reaktivieren: owner-only, restores a deactivated account
+    """
+ 
+    queryset = User.objects.all().order_by('last_name', 'first_name')
+    serializer_class = MitgliederManageSerializer
+ 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsVorstand()]
+        if self.action == 'reaktivieren':
+            return [IsSuperUser()]
+        return [IsAdminRolle()]
+ 
+    def destroy(self, request, *args, **kwargs):
+        """Hard-deletes if the owner performs it, otherwise deactivates the account."""
+        instance = self.get_object()
+        if request.user.is_superuser:
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        instance.is_active = False
+        instance.save()
+        return Response({"detail": "Mitglied wurde deaktiviert."}, status=status.HTTP_200_OK)
+ 
+    @action(detail=True, methods=['post'])
+    def reaktivieren(self, request, pk=None):
+        """Reactivates a previously deactivated member account. Owner only."""
+        instance = self.get_object()
+        instance.is_active = True
+        instance.save()
+        return Response({"detail": "Mitglied wurde reaktiviert."}, status=status.HTTP_200_OK)
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 

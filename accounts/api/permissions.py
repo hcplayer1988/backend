@@ -39,3 +39,18 @@ class IsAdminRolle(BasePermission):
         user = request.user
         return bool(user and user.is_authenticated and user.has_rolle('admin'))
  
+ 
+class IsSuperUser(BasePermission):
+    """Grants access only to the platform owner (Django's is_superuser flag).
+ 
+    Used for actions reserved for the owner alone, e.g. hard-deleting or
+    reactivating a member account.
+    """
+ 
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and user.is_superuser)
+ 
+ 
+ 
+ 
