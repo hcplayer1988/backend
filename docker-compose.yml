@@ -9,12 +9,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
+ 
   backend:
-    build: ./backend
+    build: .
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./backend:/app
+      - .:/app
     ports:
       - "8000:8000"
     depends_on:
@@ -25,6 +25,7 @@ services:
       DB_PASSWORD: vv90dev
       DB_HOST: db
       DB_PORT: 5432
-
+ 
 volumes:
   postgres_data:
+ 

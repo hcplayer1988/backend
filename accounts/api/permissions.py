@@ -22,22 +22,25 @@ class CookieJWTAuthentication(JWTAuthentication):
  
  
 class IsVorstand(BasePermission):
-    """Grants access only to authenticated users with the Vorstand or Admin role."""
+    """Grants access to Vorstand, Admin, and the platform owner (superuser)."""
  
     def has_permission(self, request, view):
         user = request.user
         return bool(
             user and user.is_authenticated
-            and (user.has_rolle('vorstand') or user.has_rolle('admin'))
+            and (user.is_superuser or user.has_rolle('vorstand') or user.has_rolle('admin'))
         )
  
  
 class IsAdminRolle(BasePermission):
-    """Grants access only to authenticated users with the Admin role."""
+    """Grants access to users with the Admin role, and the platform owner (superuser)."""
  
     def has_permission(self, request, view):
         user = request.user
-        return bool(user and user.is_authenticated and user.has_rolle('admin'))
+        return bool(
+            user and user.is_authenticated
+            and (user.is_superuser or user.has_rolle('admin'))
+        )
  
  
 class IsSuperUser(BasePermission):
