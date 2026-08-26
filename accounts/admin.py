@@ -13,7 +13,7 @@ User = get_user_model()
 class CustomUserAdmin(UserAdmin):
     """Admin configuration for club members (custom User model)."""
  
-    list_display = ['email', 'voller_name', 'is_active', 'is_superuser', 'rollen_liste', 'date_joined']
+    list_display = ['email', 'full_name', 'is_active', 'is_superuser', 'rollen_liste', 'date_joined']
     list_filter = ['is_active', 'is_superuser', 'rollen']
     search_fields = ['email', 'username', 'first_name', 'last_name']
     ordering = ['-date_joined']
@@ -24,6 +24,11 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('strasse', 'hausnummer', 'plz', 'ort', 'geburtstag', 'rollen'),
         }),
     )
+ 
+    def full_name(self, obj):
+        """Displays the member's full name in the list view (falls back to email)."""
+        return obj.full_name
+    full_name.short_description = 'Name'
  
     def rollen_liste(self, obj):
         """Displays the member's roles as a comma-separated string in the list view."""
@@ -49,7 +54,9 @@ class EinladungAdmin(admin.ModelAdmin):
  
     def gueltig(self, obj):
         """Shows at a glance in the list view whether the invite can still be used."""
-        return obj.ist_gueltig()
+        return obj.is_valid()
     gueltig.boolean = True
     gueltig.short_description = 'Noch gültig'
+ 
+ 
  

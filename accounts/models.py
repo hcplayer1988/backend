@@ -47,18 +47,18 @@ class User(AbstractUser):
  
     rollen = models.ManyToManyField(Rolle, blank=True, related_name='users')
  
-    def has_rolle(self, rolle_name):
+    def has_role(self, rolle_name):
         """Checks whether the user has the given role."""
         return self.rollen.filter(name=rolle_name).exists()
  
     @property
-    def voller_name(self):
+    def full_name(self):
         """Returns the member's full name, falling back to the email."""
         name = f"{self.first_name} {self.last_name}".strip()
         return name or self.email
  
     @property
-    def vollstaendige_adresse(self):
+    def full_address(self):
         """Returns a formatted one-line address, or an empty string if incomplete."""
         if not (self.strasse and self.plz and self.ort):
             return ''

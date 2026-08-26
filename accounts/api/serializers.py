@@ -21,15 +21,15 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for a member's profile data, including roles."""
  
     rollen = RolleSerializer(many=True, read_only=True)
-    voller_name = serializers.ReadOnlyField()
-    vollstaendige_adresse = serializers.ReadOnlyField()
+    full_name = serializers.ReadOnlyField()
+    full_address = serializers.ReadOnlyField()
  
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
             'strasse', 'hausnummer', 'plz', 'ort', 'geburtstag',
-            'voller_name', 'vollstaendige_adresse', 'rollen',
+            'full_name', 'full_address', 'rollen',
         ]
         read_only_fields = ['id', 'email', 'username', 'rollen']
  
@@ -82,7 +82,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             einladung = Einladung.objects.get(token=attrs['token'], email=attrs['email'])
         except Einladung.DoesNotExist:
             raise serializers.ValidationError('Invalid invite token for this email.')
-        if not einladung.ist_gueltig():
+        if not einladung.is_valid():
             raise serializers.ValidationError('This invite is expired or already used.')
         attrs['_einladung'] = einladung
         return attrs
@@ -162,17 +162,16 @@ class MitgliederManageSerializer(serializers.ModelSerializer):
     """
  
     rollen = serializers.PrimaryKeyRelatedField(many=True, queryset=Rolle.objects.all(), required=False)
-    voller_name = serializers.ReadOnlyField()
+    full_name = serializers.ReadOnlyField()
  
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
             'strasse', 'hausnummer', 'plz', 'ort', 'geburtstag',
-            'voller_name', 'rollen', 'is_active',
+            'full_name', 'rollen', 'is_active',
         ]
-        read_only_fields = ['id', 'email', 'username', 'is_active']
- 
+        read_only_fields = ['id', 'email', 'username', 'is_active'] 
  
  
  

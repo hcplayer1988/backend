@@ -28,7 +28,7 @@ class IsVorstand(BasePermission):
         user = request.user
         return bool(
             user and user.is_authenticated
-            and (user.is_superuser or user.has_rolle('vorstand') or user.has_rolle('admin'))
+            and (user.is_superuser or user.has_role('vorstand') or user.has_role('admin'))
         )
  
  
@@ -39,7 +39,7 @@ class IsAdminRolle(BasePermission):
         user = request.user
         return bool(
             user and user.is_authenticated
-            and (user.is_superuser or user.has_rolle('admin'))
+            and (user.is_superuser or user.has_role('admin'))
         )
  
  
@@ -52,8 +52,6 @@ class IsSuperUser(BasePermission):
  
     def has_permission(self, request, view):
         user = request.user
-        return bool(user and user.is_authenticated and user.is_superuser)
- 
- 
+        return bool(user and user.is_authenticated and user.is_superuser) 
  
  
