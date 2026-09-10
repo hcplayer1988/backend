@@ -1,6 +1,7 @@
 """Serializers for the accounts API (invites, registration, login, profile)."""
  
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
  
@@ -171,7 +172,69 @@ class MitgliederManageSerializer(serializers.ModelSerializer):
             'strasse', 'hausnummer', 'plz', 'ort', 'geburtstag',
             'full_name', 'rollen', 'is_active',
         ]
-        read_only_fields = ['id', 'email', 'username', 'is_active'] 
+        read_only_fields = ['id', 'email', 'username', 'is_active']
+ 
+ 
+class ChangeCredentialsSerializer(serializers.Serializer):
+    """Serializer for a logged-in user changing their own email and/or
+    password. Requires the current password as a confirmation gate for
+    either change - deliberately separate from UserSerializer (used for
+    /me/), where email stays read-only and there's no password handling.
+    """
+ 
+    current_password = serializers.CharField(write_only=True)
+    new_email = serializers.EmailField(required=False)
+    new_password = serializers.CharField(write_only=True, required=False)
+    confirm_new_password = serializers.CharField(write_only=True, required=False)
+ 
+    def validate_current_password(self, value):
+        """Confirms the request comes from someone who actually knows the
+        current password, not just someone with an active session."""
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Aktuelles Passwort ist falsch.')
+        return value
+ 
+    def validate_new_email(self, value):
+        """Rejects an email already used by a different account."""
+        user = self.context['request'].user
+        if User.objects.filter(email=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('Diese E-Mail-Adresse wird bereits verwendet.')
+        return value
+ 
+    def validate_new_password(self, value):
+        """Runs the new password through Django's configured password
+        validators (AUTH_PASSWORD_VALIDATORS in settings.py) - same rules
+        that already apply everywhere else, e.g. during registration."""
+        validate_password(value)
+        return value
+ 
+    def validate(self, attrs):
+        """Requires at least one actual change, and that password confirmation matches."""
+        if not attrs.get('new_email') and not attrs.get('new_password'):
+            raise serializers.ValidationError(
+                'Gib eine neue E-Mail-Adresse oder ein neues Passwort an.'
+            )
+        if attrs.get('new_password') and attrs.get('new_password') != attrs.get('confirm_new_password'):
+            raise serializers.ValidationError('Die neuen Passwörter stimmen nicht überein.')
+        return attrs
+ 
+    def save(self):
+        """Applies whichever change(s) were provided. Username is kept in
+        sync with email, matching the email=username convention used
+        throughout accounts (see RegistrationSerializer)."""
+        user = self.context['request'].user
+        new_email = self.validated_data.get('new_email')
+        new_password = self.validated_data.get('new_password')
+ 
+        if new_email:
+            user.email = new_email
+            user.username = new_email
+        if new_password:
+            user.set_password(new_password)
+ 
+        user.save()
+        return user
  
  
  

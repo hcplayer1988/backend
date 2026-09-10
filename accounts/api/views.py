@@ -1,7 +1,8 @@
 """Views for the accounts API (invites, registration, login, profile)."""
  
 from django.contrib.auth import get_user_model
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,10 +11,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
  
 from ..models import Einladung, Rolle
-from .permissions import IsVorstand
+from .permissions import IsAdminRolle, IsSuperUser, IsVorstand
 from .serializers import (
-    EmailTokenObtainPairSerializer, InviteCreateSerializer, PasswordConfirmSerializer,
-    RegistrationSerializer, UserSerializer,
+    ChangeCredentialsSerializer, EmailTokenObtainPairSerializer, InviteCreateSerializer,
+    MitgliederManageSerializer, PasswordConfirmSerializer, RegistrationSerializer, UserSerializer,
 )
 from .utils import (
     build_user_response, delete_auth_cookies, generate_uid_and_token,
@@ -177,11 +178,18 @@ class MeView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
  
  
-from rest_framework import viewsets
-from rest_framework.decorators import action
+class ChangeCredentialsView(APIView):
+    """Lets a logged-in member change their own email and/or password,
+    gated behind their current password (see ChangeCredentialsSerializer)."""
  
-from .permissions import IsAdminRolle, IsSuperUser
-from .serializers import MitgliederManageSerializer
+    permission_classes = [IsAuthenticated]
+ 
+    def post(self, request):
+        serializer = ChangeCredentialsSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response({"detail": "Änderungen gespeichert."}, status=status.HTTP_200_OK)
  
  
 class MitgliederViewSet(viewsets.ModelViewSet):
@@ -222,7 +230,6 @@ class MitgliederViewSet(viewsets.ModelViewSet):
         instance.is_active = True
         instance.save()
         return Response({"detail": "Mitglied wurde reaktiviert."}, status=status.HTTP_200_OK)
- 
  
  
  

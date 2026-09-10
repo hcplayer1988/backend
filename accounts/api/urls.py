@@ -4,8 +4,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
  
 from .views import (
-    CookieTokenRefreshView, InviteCreateView, LoginView, LogoutView, MeView,
-    MitgliederViewSet, PasswordConfirmView, PasswordResetView, RegisterView,
+    ChangeCredentialsView, CookieTokenRefreshView, InviteCreateView, LoginView, LogoutView,
+    MeView, MitgliederViewSet, PasswordConfirmView, PasswordResetView, RegisterView,
 )
  
 router = DefaultRouter()
@@ -20,6 +20,7 @@ urlpatterns = [
     path('password_confirm/<str:uidb64>/<str:token>/', PasswordConfirmView.as_view(), name='password_confirm'),
     path('token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('me/', MeView.as_view(), name='me'),
+    path('change-credentials/', ChangeCredentialsView.as_view(), name='change_credentials'),
     path('', include(router.urls)),
 ]
  
