@@ -1,8 +1,9 @@
-"""Models for the accounts app: custom user, roles and invites."""
+"""Models for the accounts app: custom user, roles, invites and email changes."""
  
 import secrets
 from datetime import timedelta
  
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -92,4 +93,33 @@ class Einladung(models.Model):
  
     def __str__(self):
         return f"{self.email} ({'verwendet' if self.verwendet else 'offen'})"
-    
+ 
+ 
+class EmailAenderung(models.Model):
+    """A pending email change, awaiting confirmation via the link sent to
+    the NEW address. The user's actual email stays untouched until the
+    token is used - no time-based rollback is needed, since nothing
+    changes on its own; it only happens when the link is clicked.
+    """
+ 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='email_aenderungen'
+    )
+    neue_email = models.EmailField()
+    token = models.CharField(max_length=64, unique=True, default=secrets.token_urlsafe)
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        verbose_name = 'E-Mail-Änderung'
+        verbose_name_plural = 'E-Mail-Änderungen'
+        ordering = ['-erstellt_am']
+ 
+    def is_valid(self):
+        """Checks whether the confirmation link is still usable (not older than 24 hours)."""
+        return self.erstellt_am >= timezone.now() - timedelta(hours=24)
+ 
+    def __str__(self):
+        return f"{self.user.email} -> {self.neue_email}"
+ 
+
+

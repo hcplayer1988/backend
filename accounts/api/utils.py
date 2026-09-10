@@ -57,6 +57,38 @@ def send_password_reset_email(user, uid, token):
     )
  
  
+def send_email_change_confirm_email(aenderung):
+    """Sends the confirmation link to the NEW address - clicking it is what
+    actually applies the email change (see EmailChangeConfirmView)."""
+    confirm_link = f"{settings.FRONTEND_URL}/email-bestaetigen?token={aenderung.token}"
+    send_html_email(
+        subject="Bestätige deine neue E-Mail-Adresse – VV90",
+        template_name="emails/email_change_confirm.html",
+        context={
+            "confirm_link": confirm_link,
+            "alte_email": aenderung.user.email,
+            "neue_email": aenderung.neue_email,
+            "site_url": settings.FRONTEND_URL,
+        },
+        recipient=aenderung.neue_email,
+    )
+ 
+ 
+def send_email_change_notice_email(user, neue_email):
+    """Sends a heads-up notice to the OLD address - purely informational,
+    no action needed, just a way to notice if this wasn't actually the
+    account owner requesting the change."""
+    send_html_email(
+        subject="Änderung deiner E-Mail-Adresse angefordert – VV90",
+        template_name="emails/email_change_notice.html",
+        context={
+            "neue_email": neue_email,
+            "site_url": settings.FRONTEND_URL,
+        },
+        recipient=user.email,
+    )
+ 
+ 
 def get_user_from_uid(uidb64):
     """Decodes a uidb64 value and returns the matching user, or None."""
     try:

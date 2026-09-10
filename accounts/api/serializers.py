@@ -5,7 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
  
-from ..models import Einladung, Rolle
+from ..models import Einladung, EmailAenderung, Rolle
  
 User = get_user_model()
  
@@ -177,9 +177,17 @@ class MitgliederManageSerializer(serializers.ModelSerializer):
  
 class ChangeCredentialsSerializer(serializers.Serializer):
     """Serializer for a logged-in user changing their own email and/or
-    password. Requires the current password as a confirmation gate for
-    either change - deliberately separate from UserSerializer (used for
-    /me/), where email stays read-only and there's no password handling.
+    password.
+ 
+    Password changes apply immediately (the current password is already
+    the security gate). Email changes do NOT apply immediately - instead
+    this creates a pending EmailAenderung and the view sends a confirmation
+    link to the NEW address; the actual email only changes once that link
+    is clicked (see EmailChangeConfirmView). This serializer exposes the
+    created EmailAenderung (if any) via self.pending_email_change so the
+    view can send the confirmation email - mirrors how InviteCreateView
+    sends its email itself after the serializer/model layer is done,
+    keeping serializers focused on data, not side effects.
     """
  
     current_password = serializers.CharField(write_only=True)
@@ -220,21 +228,26 @@ class ChangeCredentialsSerializer(serializers.Serializer):
         return attrs
  
     def save(self):
-        """Applies whichever change(s) were provided. Username is kept in
-        sync with email, matching the email=username convention used
-        throughout accounts (see RegistrationSerializer)."""
+        """Applies the password change immediately (if any), and creates a
+        pending EmailAenderung for the email change (if any) - stored on
+        self.pending_email_change for the view to pick up and email out."""
         user = self.context['request'].user
         new_email = self.validated_data.get('new_email')
         new_password = self.validated_data.get('new_password')
  
-        if new_email:
-            user.email = new_email
-            user.username = new_email
+        self.pending_email_change = None
+ 
         if new_password:
             user.set_password(new_password)
+            user.save()
  
-        user.save()
+        if new_email:
+            # Only one pending change per user at a time - a new request
+            # replaces any earlier, still-unconfirmed one.
+            EmailAenderung.objects.filter(user=user).delete()
+            self.pending_email_change = EmailAenderung.objects.create(user=user, neue_email=new_email)
+ 
         return user
- 
+  
  
  

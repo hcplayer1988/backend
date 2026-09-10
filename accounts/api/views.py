@@ -1,7 +1,7 @@
 """Views for the accounts API (invites, registration, login, profile)."""
  
 from django.contrib.auth import get_user_model
-from rest_framework import status, viewsets
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -10,16 +10,18 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
  
-from ..models import Einladung, Rolle
+from ..models import Einladung, EmailAenderung, Rolle
 from .permissions import IsAdminRolle, IsSuperUser, IsVorstand
 from .serializers import (
     ChangeCredentialsSerializer, EmailTokenObtainPairSerializer, InviteCreateSerializer,
-    MitgliederManageSerializer, PasswordConfirmSerializer, RegistrationSerializer, UserSerializer,
+    MitgliederManageSerializer, PasswordConfirmSerializer, RegistrationSerializer,
+    RolleSerializer, UserSerializer,
 )
 from .utils import (
     build_user_response, delete_auth_cookies, generate_uid_and_token,
-    get_user_from_uid, is_valid_activation_token, send_invite_email,
-    send_password_reset_email, set_auth_cookies,
+    get_user_from_uid, is_valid_activation_token, send_email_change_confirm_email,
+    send_email_change_notice_email, send_invite_email, send_password_reset_email,
+    set_auth_cookies,
 )
  
 User = get_user_model()
@@ -179,8 +181,13 @@ class MeView(APIView):
  
  
 class ChangeCredentialsView(APIView):
-    """Lets a logged-in member change their own email and/or password,
-    gated behind their current password (see ChangeCredentialsSerializer)."""
+    """Lets a logged-in member change their own email and/or password.
+ 
+    Password changes apply immediately. Email changes instead trigger a
+    confirmation email to the NEW address (see EmailChangeConfirmView) plus
+    a heads-up notice to the OLD address - the actual email only changes
+    once the confirmation link is clicked.
+    """
  
     permission_classes = [IsAuthenticated]
  
@@ -188,8 +195,67 @@ class ChangeCredentialsView(APIView):
         serializer = ChangeCredentialsSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        serializer.save()
+ 
+        old_email = request.user.email
+        user = serializer.save()
+ 
+        if serializer.pending_email_change:
+            send_email_change_confirm_email(serializer.pending_email_change)
+            send_email_change_notice_email(user, serializer.pending_email_change.neue_email)
+            return Response(
+                {
+                    "detail": (
+                        f"Bestätigungslink an {serializer.pending_email_change.neue_email} "
+                        f"verschickt. Die E-Mail-Adresse ändert sich erst nach Bestätigung - "
+                        f"bis dahin bleibt {old_email} gültig."
+                    )
+                },
+                status=status.HTTP_200_OK,
+            )
+ 
         return Response({"detail": "Änderungen gespeichert."}, status=status.HTTP_200_OK)
+ 
+ 
+class EmailChangeConfirmView(APIView):
+    """Confirms a pending email change via the link sent to the new address.
+    This is the only point where the user's actual email is updated."""
+ 
+    permission_classes = [AllowAny]
+ 
+    def get(self, request, token):
+        try:
+            aenderung = EmailAenderung.objects.get(token=token)
+        except EmailAenderung.DoesNotExist:
+            return Response({"detail": "Invalid or expired confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        if not aenderung.is_valid():
+            aenderung.delete()
+            return Response({"detail": "Invalid or expired confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
+ 
+        user = aenderung.user
+        user.email = aenderung.neue_email
+        user.username = aenderung.neue_email
+        user.save()
+ 
+        # Clean up: this request is consumed, and any other still-pending
+        # requests for this user are now moot.
+        EmailAenderung.objects.filter(user=user).delete()
+ 
+        return Response(
+            {"detail": "E-Mail-Adresse erfolgreich bestätigt und geändert."},
+            status=status.HTTP_200_OK,
+        )
+ 
+ 
+class RolleListView(generics.ListAPIView):
+    """Lists all existing roles with their IDs and names - needed so the
+    frontend can turn a role ID (which is all the mitglieder-endpoint
+    returns) back into a human-readable name, and so the Verwaltung UI can
+    offer real checkboxes for role assignment instead of raw numbers."""
+ 
+    queryset = Rolle.objects.all().order_by('name')
+    serializer_class = RolleSerializer
+    permission_classes = [IsVorstand]
  
  
 class MitgliederViewSet(viewsets.ModelViewSet):

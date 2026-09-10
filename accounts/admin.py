@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
  
-from .models import Einladung, Rolle
+from .models import Einladung, EmailAenderung, Rolle
  
 User = get_user_model()
  
@@ -58,5 +58,19 @@ class EinladungAdmin(admin.ModelAdmin):
     gueltig.boolean = True
     gueltig.short_description = 'Noch gültig'
  
+ 
+@admin.register(EmailAenderung)
+class EmailAenderungAdmin(admin.ModelAdmin):
+    """Admin configuration for pending email changes."""
+ 
+    list_display = ['user', 'neue_email', 'erstellt_am', 'gueltig']
+    search_fields = ['user__email', 'neue_email']
+    readonly_fields = ['user', 'neue_email', 'token', 'erstellt_am']
+ 
+    def gueltig(self, obj):
+        """Shows at a glance in the list view whether the confirmation link is still usable."""
+        return obj.is_valid()
+    gueltig.boolean = True
+    gueltig.short_description = 'Noch gültig'
  
  
