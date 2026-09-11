@@ -9,6 +9,10 @@ from ..models import Einladung, EmailAenderung, Rolle
  
 User = get_user_model()
  
+# NEU: Grenzen fuer den Avatar-Upload, siehe UserSerializer.validate_avatar.
+MAX_AVATAR_SIZE_MB = 5
+ALLOWED_AVATAR_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+ 
  
 class RolleSerializer(serializers.ModelSerializer):
     """Serializer for a single role."""
@@ -30,9 +34,35 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
             'strasse', 'hausnummer', 'plz', 'ort', 'geburtstag',
-            'full_name', 'full_address', 'rollen',
+            'full_name', 'full_address', 'avatar', 'rollen',
         ]
         read_only_fields = ['id', 'email', 'username', 'rollen']
+ 
+    def validate_avatar(self, value):
+        """Rejects avatars that are too large or not an accepted image type.
+ 
+        'value' is None when the field is explicitly cleared (avatar removed),
+        so only actual uploaded files are checked here.
+        """
+        if not value:
+            return value
+        if value.size > MAX_AVATAR_SIZE_MB * 1024 * 1024:
+            raise serializers.ValidationError(
+                f'Das Bild darf maximal {MAX_AVATAR_SIZE_MB}MB groß sein.'
+            )
+        if getattr(value, 'content_type', None) not in ALLOWED_AVATAR_CONTENT_TYPES:
+            raise serializers.ValidationError('Nur JPEG-, PNG- oder WebP-Bilder sind erlaubt.')
+        return value
+ 
+    def update(self, instance, validated_data):
+        """Deletes the old avatar file from disk when it's replaced or removed,
+        so uploads don't just pile up unused in the media folder."""
+        if 'avatar' in validated_data:
+            old_avatar = instance.avatar
+            new_avatar = validated_data.get('avatar')
+            if old_avatar and old_avatar != new_avatar:
+                old_avatar.delete(save=False)
+        return super().update(instance, validated_data)
  
  
 class InviteCreateSerializer(serializers.Serializer):

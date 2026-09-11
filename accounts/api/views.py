@@ -80,7 +80,10 @@ class LoginView(TokenObtainPairView):
             return response
         user = User.objects.get(email=request.data.get("email"))
         set_auth_cookies(response, response.data.get("access"), response.data.get("refresh"))
-        response.data = build_user_response(user)
+        # request wird mitgegeben, damit build_user_response() eine absolute
+        # Avatar-URL bauen kann (sonst zeigt die Topbar direkt nach dem Login
+        # noch Initialen statt Bild, bis zum naechsten /me/-Aufruf oder Reload).
+        response.data = build_user_response(user, request)
         return response
  
  
@@ -172,11 +175,20 @@ class MeView(APIView):
  
     def get(self, request):
         """Returns the logged-in member's profile, including roles."""
-        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+        return Response(
+            UserSerializer(request.user, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
  
     def patch(self, request):
-        """Lets a member update their own contact data (not their roles)."""
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        """Lets a member update their own contact data (not their roles), and
+        their avatar. Accepts both JSON (plain field updates) and
+        multipart/form-data (when an avatar file is included) - DRF picks the
+        right parser automatically based on the request's content type.
+        """
+        serializer = UserSerializer(
+            request.user, data=request.data, partial=True, context={'request': request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
@@ -324,7 +336,7 @@ class MitgliederViewSet(viewsets.ModelViewSet):
         instance.is_active = True
         instance.save()
         return Response({"detail": "Mitglied wurde reaktiviert."}, status=status.HTTP_200_OK)
- 
+  
  
  
  

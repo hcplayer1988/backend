@@ -45,6 +45,9 @@ class User(AbstractUser):
     plz = models.CharField(max_length=10, blank=True)
     ort = models.CharField(max_length=100, blank=True)
     geburtstag = models.DateField(null=True, blank=True)
+    # NEU: Profilbild. Landet im MEDIA_ROOT unter avatars/, siehe settings.py.
+    # Zaehlt bewusst NICHT zur geplanten 50MB-Speicher-Quota der Mitglieder.
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
  
     rollen = models.ManyToManyField(Rolle, blank=True, related_name='users')
  

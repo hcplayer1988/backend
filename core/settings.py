@@ -142,8 +142,10 @@ REST_FRAMEWORK = {
 }
  
 # NEU: Einstellungen für die JWT-Tokens (Lebensdauer, Rotation).
+# GEFIXT: ACCESS_TOKEN_LIFETIME stand auf timedelta(seconds=15) statt Minuten
+# (Tippfehler) - dadurch wäre das Access-Token alle 15 Sekunden abgelaufen.
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -167,6 +169,12 @@ USE_TZ = True
  
 STATIC_URL = 'static/'
  
+# NEU: fuer den Avatar-Upload gebraucht. MEDIA_ROOT ist der Ordner auf der
+# Festplatte (bzw. im Docker-Volume), in dem hochgeladene Dateien landen,
+# MEDIA_URL ist der Pfad, unter dem sie im Browser erreichbar sind.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+ 
  
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -182,4 +190,3 @@ DEFAULT_FROM_EMAIL = 'noreply@vv90.de'
 FRONTEND_URL = 'http://localhost:5173'
 BACKEND_URL = 'http://localhost:8000'
  
-

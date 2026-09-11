@@ -117,20 +117,31 @@ def delete_auth_cookies(response):
     response.delete_cookie("refresh_token")
  
  
-def build_user_response(user):
+def build_user_response(user, request=None):
     """Builds the user data dict returned on successful login - includes
     roles so the frontend knows the correct permissions immediately,
-    without needing a follow-up /me/ call or a page reload to see them."""
+    without needing a follow-up /me/ call or a page reload to see them.
+ 
+    NEU: also includes the avatar (if any), for the same reason - otherwise
+    the topbar would show initials right after login until the next /me/
+    call or a page reload. 'request' is optional so this still works if
+    ever called without one (falls back to a relative URL in that case).
+    """
+    avatar_url = None
+    if user.avatar:
+        avatar_url = request.build_absolute_uri(user.avatar.url) if request else user.avatar.url
+ 
     return {
         "detail": "Login successful",
         "user": {
             "id": user.id,
             "email": user.email,
             "username": user.username,
+            "avatar": avatar_url,
             "rollen": [{"id": r.id, "name": r.name} for r in user.rollen.all()],
         },
     }
- 
+  
 
 
 
