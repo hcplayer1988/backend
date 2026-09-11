@@ -248,6 +248,25 @@ class ChangeCredentialsSerializer(serializers.Serializer):
             self.pending_email_change = EmailAenderung.objects.create(user=user, neue_email=new_email)
  
         return user
-  
+ 
+class EinladungSerializer(serializers.ModelSerializer):
+    """Serializer for viewing sent invites (Vorstand/Admin). Includes a
+    computed 'ist_gueltig' field so the frontend doesn't need to
+    reimplement the same 7-day validity window logic as Einladung.is_valid().
+    """
+ 
+    rolle = RolleSerializer(read_only=True)
+    erstellt_von = serializers.StringRelatedField()
+    ist_gueltig = serializers.SerializerMethodField()
+ 
+    class Meta:
+        model = Einladung
+        fields = ['id', 'email', 'rolle', 'erstellt_von', 'erstellt_am', 'verwendet', 'ist_gueltig']
+ 
+    def get_ist_gueltig(self, obj):
+        return obj.is_valid()
+ 
+ 
+ 
  
  

@@ -4,13 +4,14 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
  
 from .views import (
-    ChangeCredentialsView, CookieTokenRefreshView, EmailChangeConfirmView, InviteCreateView,
-    LoginView, LogoutView, MeView, MitgliederViewSet, PasswordConfirmView, PasswordResetView,
-    RegisterView, RolleListView,
+    ChangeCredentialsView, CookieTokenRefreshView, EinladungViewSet, EmailChangeConfirmView,
+    InviteCreateView, LoginView, LogoutView, MeView, MitgliederViewSet, PasswordConfirmView,
+    PasswordResetView, RegisterView, RolleListView,
 )
  
 router = DefaultRouter()
 router.register('mitglieder', MitgliederViewSet, basename='mitglieder')
+router.register('einladungen', EinladungViewSet, basename='einladungen')
  
 urlpatterns = [
     path('invite/', InviteCreateView.as_view(), name='invite'),
@@ -26,5 +27,5 @@ urlpatterns = [
     path('rollen/', RolleListView.as_view(), name='rollen_list'),
     path('', include(router.urls)),
 ]
-
+ 
  

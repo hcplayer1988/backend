@@ -1,7 +1,10 @@
 """Views for the accounts API (invites, registration, login, profile)."""
  
+import secrets
+ 
 from django.contrib.auth import get_user_model
-from rest_framework import generics, status, viewsets
+from django.utils import timezone
+from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -13,9 +16,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from ..models import Einladung, EmailAenderung, Rolle
 from .permissions import IsAdminRolle, IsSuperUser, IsVorstand
 from .serializers import (
-    ChangeCredentialsSerializer, EmailTokenObtainPairSerializer, InviteCreateSerializer,
-    MitgliederManageSerializer, PasswordConfirmSerializer, RegistrationSerializer,
-    RolleSerializer, UserSerializer,
+    ChangeCredentialsSerializer, EinladungSerializer, EmailTokenObtainPairSerializer,
+    InviteCreateSerializer, MitgliederManageSerializer, PasswordConfirmSerializer,
+    RegistrationSerializer, RolleSerializer, UserSerializer,
 )
 from .utils import (
     build_user_response, delete_auth_cookies, generate_uid_and_token,
@@ -256,6 +259,31 @@ class RolleListView(generics.ListAPIView):
     queryset = Rolle.objects.all().order_by('name')
     serializer_class = RolleSerializer
     permission_classes = [IsVorstand]
+ 
+ 
+class EinladungViewSet(mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    """Vorstand/Admin-facing view of sent invites.
+ 
+    - list: see all invites with their status (open/expired/used)
+    - destroy: revoke an invite (deletes it, so the token becomes unusable)
+    - erneut_senden: resend an invite email, refreshing its token and
+      7-day validity window - works for both still-open and expired invites
+    """
+ 
+    queryset = Einladung.objects.all().order_by('-erstellt_am')
+    serializer_class = EinladungSerializer
+    permission_classes = [IsVorstand]
+ 
+    @action(detail=True, methods=['post'])
+    def erneut_senden(self, request, pk=None):
+        """Resends the invite email with a fresh token and reset validity window."""
+        einladung = self.get_object()
+        einladung.token = secrets.token_urlsafe()
+        einladung.erstellt_am = timezone.now()
+        einladung.verwendet = False
+        einladung.save()
+        send_invite_email(einladung)
+        return Response(EinladungSerializer(einladung).data, status=status.HTTP_200_OK)
  
  
 class MitgliederViewSet(viewsets.ModelViewSet):
