@@ -118,9 +118,23 @@ def delete_auth_cookies(response):
  
  
 def build_user_response(user):
-    """Builds the small user data dict returned on successful login."""
+    """Builds the user data dict returned on successful login - includes
+    roles so the frontend knows the correct permissions immediately,
+    without needing a follow-up /me/ call or a page reload to see them."""
     return {
         "detail": "Login successful",
-        "user": {"id": user.id, "email": user.email, "username": user.username},
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "rollen": [{"id": r.id, "name": r.name} for r in user.rollen.all()],
+        },
     }
  
+
+
+
+
+
+
+
