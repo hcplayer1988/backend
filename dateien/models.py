@@ -1,44 +1,66 @@
-"""Models for the dateien app: private per-member file storage."""
- 
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
  
  
 def upload_pfad(instance, filename):
-    """Stores each member's uploads under their own subfolder, so filenames
-    from different members never collide and everything stays easy to
-    find/clean up per member."""
     return f"mitglieder_dateien/{instance.besitzer_id}/{filename}"
  
  
+class Ordner(models.Model):
+    """Ein Ordner im privaten Dateispeicher eines Mitglieds. Ordner können
+    beliebig tief verschachtelt werden (parent = übergeordneter Ordner,
+    None = Ordner liegt im Hauptverzeichnis). Wird ein Ordner gelöscht,
+    werden alle enthaltenen Unterordner und Dateien automatisch mitgelöscht
+    (CASCADE) - das Frontend weist vorher per Popup ausdrücklich darauf hin,
+    dass das unwiderruflich ist."""
+ 
+    besitzer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ordner'
+    )
+    name = models.CharField(max_length=255)
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE, null=True, blank=True, related_name='unterordner'
+    )
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+ 
+    class Meta:
+        ordering = ['name']
+ 
+    def __str__(self):
+        return self.name
+ 
+ 
 class Datei(models.Model):
-    """A file a member uploaded to their own private storage (e.g. a PDF
-    protocol from a meeting). Counts against that member's 50MB quota (see
-    MAX_SPEICHER_PRO_MITGLIED_BYTES in api/serializers.py) - the avatar is
-    intentionally separate and does NOT count against this quota.
- 
-    Strictly private for now: a member only ever sees their own files here.
-    Sharing is a separate, later feature (planned: sending as an attachment
-    in the not-yet-built live chat).
-    """
- 
     besitzer = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dateien'
     )
+    # CASCADE (vorher SET_NULL): löscht man einen Ordner, sollen alle darin
+    # enthaltenen Dateien automatisch mitgelöscht werden, nicht ins
+    # Hauptverzeichnis "durchrutschen".
+    ordner = models.ForeignKey(
+        Ordner, on_delete=models.CASCADE, null=True, blank=True, related_name='dateien'
+    )
     datei = models.FileField(upload_to=upload_pfad)
-    # Der urspruengliche Dateiname wird separat gespeichert, weil Django beim
-    # Speichern bei einer Namenskollision automatisch einen Suffix anhaengt -
-    # so bleibt der Name, den das Mitglied kennt, in der Anzeige trotzdem erhalten.
     dateiname = models.CharField(max_length=255)
     groesse = models.PositiveIntegerField(help_text='Dateigröße in Bytes')
     content_type = models.CharField(max_length=100, blank=True)
     hochgeladen_am = models.DateTimeField(auto_now_add=True)
  
-    class Meta:
-        verbose_name = 'Datei'
-        verbose_name_plural = 'Dateien'
-        ordering = ['-hochgeladen_am']
- 
     def __str__(self):
-        return f"{self.dateiname} ({self.besitzer.email})"
+        return self.dateiname
+ 
+ 
+@receiver(post_delete, sender=Datei)
+def datei_von_platte_loeschen(sender, instance, **kwargs):
+    """Räumt die physische Datei von der Festplatte auf. Greift sowohl beim
+    direkten Löschen einer einzelnen Datei als auch beim kaskadierenden
+    Löschen über einen übergeordneten Ordner (dort läuft keine View, nur
+    Djangos CASCADE auf DB-Ebene - ohne dieses Signal blieben die Dateien
+    dann als Datenleichen auf der Festplatte liegen)."""
+    if instance.datei:
+        instance.datei.delete(save=False)
+ 
+ 
  
