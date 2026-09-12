@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'accounts',
     'termine',
     'forum',
+    'dateien',
 ]
  
 MIDDLEWARE = [
@@ -190,3 +191,6 @@ DEFAULT_FROM_EMAIL = 'noreply@vv90.de'
 FRONTEND_URL = 'http://localhost:5173'
 BACKEND_URL = 'http://localhost:8000'
  
+
+
+

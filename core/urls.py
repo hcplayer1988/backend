@@ -10,7 +10,8 @@ urlpatterns = [
     path('api/accounts/', include('accounts.api.urls')),
     path('api/termine/', include('termine.api.urls')),
     path('api/forum/', include('forum.api.urls')),
+    path('api/dateien/', include('dateien.api.urls')),
 ]
- 
+
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
  
